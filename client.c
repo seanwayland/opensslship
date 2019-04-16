@@ -209,7 +209,7 @@ void clientFunction(SSL* ssl){
     //    bytes = SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
     //    buf[bytes] = 0;
     //   printf("Received: \"%s\"\n", buf);
-    // }
+    // }ls
 
 
 

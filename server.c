@@ -338,7 +338,7 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
                 printBoard();
                 char response[] = POSITIONMSG;
                 // write(sockfd, response, sizeof(response));
-                SSL_write(ssl, reply, strlen(reply)); /* send reply */
+                SSL_write(ssl, response, strlen(response)); /* send reply */
 
                 bzero(buff, MAX);
                 for (int i = 2; i < 6; i++) {
