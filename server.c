@@ -50,55 +50,33 @@ char hashedBoard[65];
 
 int rowNumber;
 int colNumber;
-
-/// check for a win !!!
-
-
-/***
-void sha256hash() {
-    const char *value = "61661360871";
-    unsigned char *d = SHA256(value, strlen(value), 0);
-
-    int i;
-    for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
-        printf("%02x", d[i]);
-    putchar('\n');
-
-
-}
- ***/
-
-/***
-void sha256_string(char *string, char outputBuffer[65])
-{
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, string, strlen(string));
-    SHA256_Final(hash, &sha256);
-    int i = 0;
-    for(i = 0; i < SHA256_DIGEST_LENGTH; i++)
-    {
-        sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
-    }
-    outputBuffer[64] = 0;
-}
-
- ***/
-
+unsigned char hash[SHA256_DIGEST_LENGTH];
 
 void hasher () {
 
     size_t length = strlen(boardPos);
-    unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256(boardPos, length, hash);
     int i;
+    printf("\nHash");
+    printf("\n");
+
     for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
         printf("%02x", hash[i]);
-    putchar('\n');
 
+    printf("\nBoard Position string");
+    printf("\n%s", boardPos);
 
 }
+
+void setBoardPositions(){
+
+    for (int i=0; i<12; i++)
+    { boardPos[i] = boardPositionsArray[i] + '0';}
+    printf("\nBoard Position string in function");
+    printf("\n%s", boardPos);
+
+}
+
 
 
 
@@ -158,15 +136,6 @@ void printBoard() {
     }
 }
 
-
-void setBoardPositions(){
-
-    int i, k = 0;
-    for (i = 0; i < 12; i++)
-        boardPositions = 10 * boardPositions + boardPositionsArray[i];
-
-
-}
 
 
 
@@ -292,6 +261,7 @@ int placeShip(int size) {
 
         }
     }
+
 
     return result;
 }
@@ -452,33 +422,21 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
                 /// store board as a 12 digit number ( long )
                 /// ships position and orientation are stored 5 4 3 2
                 /// row , column, orientation
-                setBoardPositions();
-                printf("\nBoard Positions Long is :%ld", boardPositions);
-                printf("\n");
-                for ( int i = 0 ; i < 12 ; i ++){
-                  printf(" %d", boardPositionsArray[i] )  ;
-
-                  /// copy long found into string
-                  sprintf(boardPos, "%ld", boardPositions);
-                  /// hash the board position string
-                  //sha256hash();
-                  ///  sha256_string(boardPos, hashedBoard);
-                    printf("\n");
-                    /***
-                    for ( int i = 0; i < 64 ; i ++){
-                        printf("%02x", hashedBoard[i]);
-                    }
-                     ***/
-
-                }
+                //setBoardPositions();
+                //printf("\nBoard Positions Long is :%ld", boardPositions);
+                //printf("\n");
 
 
 
 
 
-                hasher();
+
                 printf("\nboard finished\n");
+                setBoardPositions();
+                hasher();
+
                 sleep(1); /// maybe this helps the program not hanging when the client doesnt loop back fast enough
+
                 char response2[] = INPOSITIONMSG;
                 //write(sockfd, response2, sizeof(response2));
                 SSL_write(ssl, response2, strlen(response2)); /* send reply */
@@ -547,7 +505,6 @@ int main(int count, char *strings[])
     SSL *ssl;
     char *portnum;
     initializeBoard();
-    hasher();
 
 
     /***
