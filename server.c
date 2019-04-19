@@ -1,8 +1,4 @@
-//
-// Created by sean on 4/15/19.
-//
 
-//SSL-Server.c
 #include <errno.h>
 #include <unistd.h>
 #include <malloc.h>
@@ -33,7 +29,7 @@
 #define MISSMSG "MISS\n"
 #define EXITMSG "EXIT\n"
 #define OVERMSG "OVER\n"
-#define PORT 8080
+
 #define MAX 65
 
 #define FAIL    -1
@@ -44,17 +40,14 @@ int board[9][9];
 int numShots = 0;
 int shipPlaced;
 char buff[65];
-long boardPositions;
 int boardPositionsArray[12];
 char boardPos[12];
-char hashedBoard[65];
 char hashString[65];
-
 int rowNumber;
 int colNumber;
 unsigned char hash[SHA256_DIGEST_LENGTH];
 
-void hasher () {
+void hasher() {
 
     size_t length = strlen(boardPos);
     SHA256(boardPos, length, hash);
@@ -70,18 +63,15 @@ void hasher () {
 
     static const char alphabet[] = "0123456789ABCDEF";
 
-    for (int i = 0; i != 32; ++i)
-    {
-        hashString[2*i]     = alphabet[hash[i] / 16];
-        hashString[2*i + 1] = alphabet[hash[i] % 16];
+    for (int i = 0; i != 32; ++i) {
+        hashString[2 * i] = alphabet[hash[i] / 16];
+        hashString[2 * i + 1] = alphabet[hash[i] % 16];
     }
     hashString[64] = '\0';
 
     printf("\nHashString %s", hashString);
     int l = strlen(hashString);
-    printf ("\nHashString Length, %d", l);
-
-
+    printf("\nHashString Length, %d", l);
 
     /// print the board positions values
 
@@ -90,18 +80,15 @@ void hasher () {
 
 }
 
-void setBoardPositions(){
+void setBoardPositions() {
 
-    for (int i=0; i<12; i++)
-    { boardPos[i] = boardPositionsArray[i] + '0';}
+    for (int i = 0; i < 12; i++) { boardPos[i] = boardPositionsArray[i] + '0'; }
     printf("\nBoard Position string in function");
     printf("\n%s", boardPos);
 
     ///
 
 }
-
-
 
 
 int scanBoard() {
@@ -161,8 +148,6 @@ void printBoard() {
 }
 
 
-
-
 /// check an incoming message for it's type
 int getMessageType(char array[]) {
 
@@ -174,12 +159,10 @@ int getMessageType(char array[]) {
 
     if (array[0] == '\0') { return 9; }
 
-    else if (strcmp(array, OVERMSG) == 0){
+    else if (strcmp(array, OVERMSG) == 0) {
         printf("\nserver found It's a game over message");
         return 7;
-    }
-
-    else if (strcmp(array, STARTMSG) == 0) {
+    } else if (strcmp(array, STARTMSG) == 0) {
         printf("\nserver found It's a start message");
         return 1;
     } else if (strcmp(array, EXITMSG) == 0) {
@@ -246,8 +229,8 @@ int placeShip(int size) {
             /// subtract size 2 and multiply by 3
             int shipName = (size - 2) * 3;
             /// set the 3 values
-            boardPositionsArray[shipName] = rowNumber  ;
-            boardPositionsArray[shipName + 1] = colNumber  ;
+            boardPositionsArray[shipName] = rowNumber;
+            boardPositionsArray[shipName + 1] = colNumber;
             boardPositionsArray[shipName + 2] = direction;
 
 
@@ -296,14 +279,13 @@ int placeShip(int size) {
 }
 
 
-
 /*** OPEN SSL FUNCTIONS ***/
 
 
 
 
-int OpenListener(int port)
-{   int sd;
+int OpenListener(int port) {
+    int sd;
     struct sockaddr_in addr;
 
     sd = socket(PF_INET, SOCK_STREAM, 0);
@@ -311,13 +293,11 @@ int OpenListener(int port)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
-    if ( bind(sd, (struct sockaddr*)&addr, sizeof(addr)) != 0 )
-    {
+    if (bind(sd, (struct sockaddr *) &addr, sizeof(addr)) != 0) {
         perror("can't bind port");
         abort();
     }
-    if ( listen(sd, 10) != 0 )
-    {
+    if (listen(sd, 10) != 0) {
         perror("Can't configure listening port");
         abort();
     }
@@ -325,8 +305,8 @@ int OpenListener(int port)
 }
 
 
-SSL_CTX* InitServerCTX(void)
-{   const SSL_METHOD *method;  // added "const" to remove build error
+SSL_CTX *InitServerCTX(void) {
+    const SSL_METHOD *method;  // added "const" to remove build error
     SSL_CTX *ctx;
 
     OpenSSL_add_all_algorithms();  /* load & register all cryptos, etc. */
@@ -334,43 +314,37 @@ SSL_CTX* InitServerCTX(void)
     // method = TLSv1_2_server_method();  /* create new server-method instance */ -- depreciated
     method = TLS_server_method();  /* create new server-method instance */
     ctx = SSL_CTX_new(method);   /* create new context from method */
-    if ( ctx == NULL )
-    {
+    if (ctx == NULL) {
         ERR_print_errors_fp(stderr);
         abort();
     }
     return ctx;
 }
 
-void LoadCertificates(SSL_CTX* ctx, char* CertFile, char* KeyFile)
-{
+void LoadCertificates(SSL_CTX *ctx, char *CertFile, char *KeyFile) {
     /* set the local certificate from CertFile */
-    if ( SSL_CTX_use_certificate_file(ctx, CertFile, SSL_FILETYPE_PEM) <= 0 )
-    {
+    if (SSL_CTX_use_certificate_file(ctx, CertFile, SSL_FILETYPE_PEM) <= 0) {
         ERR_print_errors_fp(stderr);
         abort();
     }
     /* set the private key from KeyFile (may be the same as CertFile) */
-    if ( SSL_CTX_use_PrivateKey_file(ctx, KeyFile, SSL_FILETYPE_PEM) <= 0 )
-    {
+    if (SSL_CTX_use_PrivateKey_file(ctx, KeyFile, SSL_FILETYPE_PEM) <= 0) {
         ERR_print_errors_fp(stderr);
         abort();
     }
     /* verify private key */
-    if ( !SSL_CTX_check_private_key(ctx) )
-    {
+    if (!SSL_CTX_check_private_key(ctx)) {
         fprintf(stderr, "Private key does not match the public certificate\n");
         abort();
     }
 }
 
-void ShowCerts(SSL* ssl)
-{   X509 *cert;
+void ShowCerts(SSL *ssl) {
+    X509 *cert;
     char *line;
 
     cert = SSL_get_peer_certificate(ssl); /* Get certificates (if available) */
-    if ( cert != NULL )
-    {
+    if (cert != NULL) {
         printf("Server certificates:\n");
         line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
         printf("Subject: %s\n", line);
@@ -379,19 +353,18 @@ void ShowCerts(SSL* ssl)
         printf("Issuer: %s\n", line);
         free(line);
         X509_free(cert);
-    }
-    else
+    } else
         printf("No certificates.\n");
 }
 
 
-void Servlet(SSL* ssl) /* Serve the connection -- threadable */
+void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 {
     char reply[80];
     int sd, bytes;
-    const char* HTMLecho="<html><body><pre>%s</pre></body></html>\n\n";
+    const char *HTMLecho = "<html><body><pre>%s</pre></body></html>\n\n";
 
-    if ( SSL_accept(ssl) == FAIL )     /* do SSL-protocol accept */
+    if (SSL_accept(ssl) == FAIL)     /* do SSL-protocol accept */
         ERR_print_errors_fp(stderr);
     else {
         ShowCerts(ssl);        /* get any certificates */
@@ -426,10 +399,7 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
                 SSL_write(ssl, die, strlen(die)); /* send reply */
 
                 break;
-            }
-
-
-            else if ( type == 7 ){
+            } else if (type == 7) {
 
                 sleep(1);
                 char response6[MAX];
@@ -467,13 +437,6 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
                 /// store board as a 12 digit number ( long )
                 /// ships position and orientation are stored 5 4 3 2
                 /// row , column, orientation
-                //setBoardPositions();
-                //printf("\nBoard Positions Long is :%ld", boardPositions);
-                //printf("\n");
-
-
-
-
 
 
                 printf("\nboard finished\n");
@@ -539,18 +502,15 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
 
                 }
 
-            }
-
-            else {
+            } else {
                 printf("Server Exit...\n");
+                sleep(1);
                 char die[] = EXITMSG;
                 ///write(sockfd, die, sizeof(die));
                 SSL_write(ssl, die, strlen(die)); /* send reply */}
 
 
             bzero(buff, sizeof(buff));
-            //break;
-
 
         }
 
@@ -558,22 +518,20 @@ void Servlet(SSL* ssl) /* Serve the connection -- threadable */
     }
 
 
-sd = SSL_get_fd(ssl);       /* get socket connection */
-SSL_free(ssl);         /* release SSL state */
-close(sd);          /* close connection */
+    sd = SSL_get_fd(ssl);       /* get socket connection */
+    SSL_free(ssl);         /* release SSL state */
+    close(sd);          /* close connection */
 }
 
-int main(int count, char *strings[])
-{   SSL_CTX *ctx;
+int main(int count, char *strings[]) {
+    SSL_CTX *ctx;
     int server;
     SSL *ssl;
     char *portnum;
     initializeBoard();
 
 
- 
-    if ( count != 2 )
-    {
+    if (count != 2) {
         printf("Usage: %s <portnum>\n", strings[0]);
         exit(0);
     }
@@ -586,10 +544,10 @@ int main(int count, char *strings[])
 
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
-    //SSL *ssl;
 
-    int client = accept(server, (struct sockaddr*)&addr, &len);  /* accept connection as usual */
-    printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+
+    int client = accept(server, (struct sockaddr *) &addr, &len);  /* accept connection as usual */
+    printf("Connection: %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
     ssl = SSL_new(ctx);              /* get new SSL state with context */
     SSL_set_fd(ssl, client);/* set connection socket to SSL state */
 
@@ -600,8 +558,8 @@ int main(int count, char *strings[])
 
     close(server);          /* close server socket */
     SSL_CTX_free(ctx);         /* release context */
+    return 0;
 
 
 }
-
 

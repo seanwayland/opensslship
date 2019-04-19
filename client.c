@@ -1,6 +1,3 @@
-//
-// Created by sean on 4/15/19.
-//
 
 #include <stdio.h>
 #include <errno.h>
@@ -31,14 +28,8 @@
 #define MISSMSG "MISS\n"
 #define EXITMSG "EXIT\n"
 #define OVERMSG "OVER\n";
-#define PORT 8080
 #define MAX 65
 
-
-//#define MAX 80
-
-
-//char buff[80];
 
 #define FAIL    -1
 
@@ -62,8 +53,6 @@ int gameState; // variable to track game position
 
 /*** SSL VARIABLES */
 
-//char buf[1024];
-int bytes;
 
 
 /// 0 is not started
@@ -77,12 +66,12 @@ int bytes;
 
 
 
-void hasher () {
+void hasher() {
 
     size_t length = strlen(boardPos);
     SHA256(boardPos, length, hash);
     int i;
-    //printf("\nHash Test End");
+
     printf("\n");
 
     for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
@@ -93,30 +82,22 @@ void hasher () {
 
     static const char alphabet[] = "0123456789ABCDEF";
 
-    for (int i = 0; i != 32; ++i)
-    {
-        hashString[2*i]     = alphabet[hash[i] / 16];
-        hashString[2*i + 1] = alphabet[hash[i] % 16];
+    for (int i = 0; i != 32; ++i) {
+        hashString[2 * i] = alphabet[hash[i] / 16];
+        hashString[2 * i + 1] = alphabet[hash[i] % 16];
     }
     hashString[64] = '\0';
 
     printf("\nFinal Hash String Generated \n%s", hashString);
     printf("\nThis should be same as initial Hash\n");
 
-    //int l = strlen(hashString);
-   // printf ("\nHashString Length, %d", l);
-
-
 
     /// print the board positions values
 
-   // printf("\nBoard Position string");
-   // printf("\n%s", boardPos);
 
 }
 
-
-
+/// set the shot board to zeros
 void initializeBoard() {
 
     for (int i = 0; i < 9; i++) {
@@ -159,27 +140,21 @@ int getMessageType(char array[]) {
     if (array[0] == '\0') { return 9; }
 
     else if (strcmp(array, HITMSG) == 0) {
-        //printf("\nIt's a hit");
+
         return 4;
-    }
-    else if ( length == 64 )
-    { printf("\nHash received");
+    } else if (length == 64) {
+        printf("\nHash received");
 
-    return 7;}
+        return 7;
+    } else if (length == 12) {
+        printf("\nBoard Positions received");
+        return 11;
+    } else if (strcmp(array, MISSMSG) == 0) {
 
-    else if ( length == 12)
-    { printf("\nBoard Positions received");
-    return 11;}
-
-    else if (strcmp(array, MISSMSG) == 0) {
-        // printf("\nIt's a miss\n");
         return 5;
     } else if ((d >= '1' & d <= '9') & (c >= 'A' & c <= 'J') & (length < 4)) {
-        // printf("\nserver found It's a shot message");
         return 9;
     } else if ((d >= '1' & d <= '9') & (c >= '1' & c <= '9') & (length < 4)) {
-        //printf("\nIt's a score message");
-        //printf("/nSCORE; %s", buf);
         return 6;
     } else if (strcmp(array, POSITIONMSG) == 0) {
         printf("\n");
@@ -188,19 +163,13 @@ int getMessageType(char array[]) {
         printf("\n");
         return 3;
     } else if (strcmp(array, EXITMSG) == 0) {
-        //  printf("\nIt's an exit message\n");
         return 8;
     } else { return -1; }
 }
 
 
 
-
-
 /*** SSL FUNCTIONS ***///
-
-
-
 
 int OpenConnection(const char *hostname, int port) {
     int sd;
@@ -230,7 +199,6 @@ SSL_CTX *InitCTX(void) {
 
     OpenSSL_add_all_algorithms();  /* Load cryptos, et.al. */
     SSL_load_error_strings();   /* Bring in and register error messages */
-    //method = TLSv1_2_client_method();  /* Create new client-method instance */ - depreciated
     method = TLS_client_method();  /* Create new client-method instance */
     ctx = SSL_CTX_new(method);   /* Create new context */
     if (ctx == NULL) {
@@ -258,12 +226,11 @@ void ShowCerts(SSL *ssl) {
         printf("Info: No client certificates configured.\n");
 }
 
-void clientFunction(SSL* ssl){
-
+void clientFunction(SSL *ssl) {
 
 
     ///char buf[MAX];
-    int n;
+
     for (;;) {
 
         /// at this point we are waiting for the server to set the ships up
@@ -273,30 +240,26 @@ void clientFunction(SSL* ssl){
             /// we should be able to receive a hash here
 
 
-            bytes = SSL_read(ssl, buf, sizeof(buf)); /* get request */
-            //read(sockfd, buff, sizeof(buf));
-           // printf("From Server : %s", buf);
+            SSL_read(ssl, buf, sizeof(buf)); /* get request */
+
             int type = getMessageType(buf);
             /// we receive a game ready message then we can play
             if (type == 3) {
                 printf("\nGame Ready ... \n");
                 gameState = 2;
                 bzero(buf, sizeof(buf));
-            }
+            } else if (type == 7) {
 
-            else if (type == 7) {
-               // printf("\nInitial hash received;");
                 printf("\n");
                 sprintf(initialHash, "%s", buf);
 
                 printf("Hash saved :\n %s", initialHash);
                 printf("\n");
                 bzero(buf, sizeof(buf));
+            } else if (type == 8 || type < 0) {
+                printf("Client Exit...\n");
+                break;
             }
-                else if (type == 8 || type < 0) {
-                    printf("Client Exit...\n");
-                    break;
-                }
 
                 /// if we get a positioning ships message clear the buffer
             else if (type == 2) {
@@ -311,18 +274,14 @@ void clientFunction(SSL* ssl){
             bzero(buf, sizeof(buf));
             printf("BATTLESHIP GAME\n");
             printf("GAME STARTING\n");
-            // n = 0;
-            //while ((buff[n++] = getchar()) != '\n');
+
             char start[] = STARTMSG;
 
             SSL_write(ssl, start, sizeof(start)); /* send reply */
-            // write(sockfd, start, sizeof(start));
 
-            //write(sockfd, buff, sizeof(buff));
             bzero(buf, sizeof(buf));
-            bytes = SSL_read(ssl, buf, sizeof(buf)); /* get request */
-            //read(sockfd, buff, sizeof(buf));
-            //read(sockfd, buf, sizeof(buf));
+            SSL_read(ssl, buf, sizeof(buf)); /* get request */
+
             printf("From Server : %s", buf);
             gameState = 1; /// if we get a message back from server then the game has "started"
             int type = getMessageType(buf);
@@ -336,12 +295,10 @@ void clientFunction(SSL* ssl){
         }
 
 
-
             /// at this point the game has started and we can make shots
 
 
-
-            else if (gameState == 2) {
+        else if (gameState == 2) {
 
             bzero(buf, sizeof(buf));
             printf("\n");
@@ -362,16 +319,14 @@ void clientFunction(SSL* ssl){
             }
 
 
-            /// SEND THE CHOT
+            /// SEND THE SHOT
 
             SSL_write(ssl, buf, sizeof(buf)); /* send reply */
 
             strncpy(lastShot, buf, MAX);
             bzero(buf, sizeof(buf));
-            bytes = SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
-            //read(sockfd, buf, sizeof(buf));
+            SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
             printf("From Server : %s", buf);
-
             /// if win message
             int type = getMessageType(buf);
             if (type == 6) {
@@ -382,29 +337,26 @@ void clientFunction(SSL* ssl){
 
                 char response[] = EXITMSG;
                 SSL_write(ssl, response, sizeof(response)); /* send reply */
-                //write(sockfd, response, sizeof(response));
 
             }
 
-            if ( type == 7 ){
+            if (type == 7) {
 
 
                 // TEST HASH //
                 printf("\nHash Recieved");
-                sprintf(initialHash, "%s", buf );
+                sprintf(initialHash, "%s", buf);
                 bzero(buf, sizeof(buf));
 
 
-
             }
-            if ( type == 11){
+            if (type == 11) {
 
                 printf("\nInitial hash \n%s", initialHash);
                 /// copy buffer to board pos here ?
 
-                for ( int i = 0; i < 12 ; i++)
-                {
-                    boardPos[i]= buf[i];
+                for (int i = 0; i < 12; i++) {
+                    boardPos[i] = buf[i];
                 }
 
                 hasher();
@@ -446,17 +398,12 @@ void clientFunction(SSL* ssl){
                 break;
             } else {}
 
-        }
-
-
-
-
-        else if (gameState == 3 ) {
+        } else if (gameState == 3) {
 
             while (1) {
 
-                bytes = SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
-                //read(sockfd, buf, sizeof(buf));
+                SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
+
                 printf("From Server : %s", buf);
 
                 int mt = getMessageType(buf);
@@ -469,12 +416,12 @@ void clientFunction(SSL* ssl){
                 if (mt == 6) {
                     printf("\nyou win !!");
                     printf("\nscore is : %s ", buf);
-                    printf("\n Game Over !! Client Exit...\n");
+                    printf("\nGame Over !! Client Exit...\n");
                     bzero(buf, MAX);
 
                     char response[] = EXITMSG;
                     SSL_write(ssl, response, sizeof(response)); /* send reply */
-                    //write(sockfd, response, sizeof(response));
+
 
                     break;
                 } else {
@@ -488,46 +435,38 @@ void clientFunction(SSL* ssl){
         }
 
 
-
-
     } /*** END MAIN LOOP ***/
 }
 
 
-
-
-int main(int count, char *strings[])
-{
+int main(int count, char *strings[]) {
     gameState = 0; // starting !!
     SSL_CTX *ctx;
     int server;
     SSL *ssl;
-    char buf[1024];
-    int bytes;
+
+
     char *hostname, *portnum;
 
     initializeBoard();
 
 
-    if ( count != 3 )
-    {
+    if (count != 3) {
         printf("usage: %s <hostname> <portnum>\n", strings[0]);
         exit(0);
     }
     SSL_library_init();
-    hostname=strings[1];
-    portnum=strings[2];
+    hostname = strings[1];
+    portnum = strings[2];
 
     ctx = InitCTX();
     server = OpenConnection(hostname, atoi(portnum));
     ssl = SSL_new(ctx);      /* create new SSL connection state */
     SSL_set_fd(ssl, server);    /* attach the socket descriptor */
-    if ( SSL_connect(ssl) == FAIL )   /* perform the connection */
+    if (SSL_connect(ssl) == FAIL)   /* perform the connection */
         ERR_print_errors_fp(stderr);
-    else
-    {
+    else {
         {
-            //char *msg = "Hello???";
 
             printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
             ShowCerts(ssl);        /* get any certs */
