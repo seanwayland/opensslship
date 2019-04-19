@@ -571,13 +571,7 @@ int main(int count, char *strings[])
     initializeBoard();
 
 
-    /***
-    if(!isRoot())
-    {
-        printf("This program must be run as root/sudo user!!");
-        exit(0);
-    }
-     **/
+ 
     if ( count != 2 )
     {
         printf("Usage: %s <portnum>\n", strings[0]);
@@ -606,6 +600,8 @@ int main(int count, char *strings[])
 
     close(server);          /* close server socket */
     SSL_CTX_free(ctx);         /* release context */
+
+
 }
 
 

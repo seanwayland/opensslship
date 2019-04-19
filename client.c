@@ -82,7 +82,7 @@ void hasher () {
     size_t length = strlen(boardPos);
     SHA256(boardPos, length, hash);
     int i;
-    printf("\nHash Test End");
+    //printf("\nHash Test End");
     printf("\n");
 
     for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
@@ -100,16 +100,18 @@ void hasher () {
     }
     hashString[64] = '\0';
 
-    printf("\nHashString %s", hashString);
-    int l = strlen(hashString);
-    printf ("\nHashString Length, %d", l);
+    printf("\nFinal Hash String Generated \n%s", hashString);
+    printf("\nThis should be same as initial Hash\n");
+
+    //int l = strlen(hashString);
+   // printf ("\nHashString Length, %d", l);
 
 
 
     /// print the board positions values
 
-    printf("\nBoard Position string");
-    printf("\n%s", boardPos);
+   // printf("\nBoard Position string");
+   // printf("\n%s", boardPos);
 
 }
 
@@ -176,8 +178,8 @@ int getMessageType(char array[]) {
         // printf("\nserver found It's a shot message");
         return 9;
     } else if ((d >= '1' & d <= '9') & (c >= '1' & c <= '9') & (length < 4)) {
-        printf("\nIt's a score message");
-        printf("/nSCORE; %s", buf);
+        //printf("\nIt's a score message");
+        //printf("/nSCORE; %s", buf);
         return 6;
     } else if (strcmp(array, POSITIONMSG) == 0) {
         printf("\n");
@@ -260,19 +262,6 @@ void clientFunction(SSL* ssl){
 
 
 
-    //while(1) {
-    //    printf("Enter your shot!! \n(Capital letter ( A to I )  then number ( 1 to 9 ) \nEXIT to quit:  ");
-    //   fgets(buff, MAX, stdin);
-    //    SSL_write(ssl, buff, strlen(buff));   /* encrypt & send message */
-    //    bytes = SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
-    //    buf[bytes] = 0;
-    //   printf("Received: \"%s\"\n", buf);
-    // }ls
-
-
-
-
-
     ///char buf[MAX];
     int n;
     for (;;) {
@@ -286,7 +275,7 @@ void clientFunction(SSL* ssl){
 
             bytes = SSL_read(ssl, buf, sizeof(buf)); /* get request */
             //read(sockfd, buff, sizeof(buf));
-            printf("From Server : %s", buf);
+           // printf("From Server : %s", buf);
             int type = getMessageType(buf);
             /// we receive a game ready message then we can play
             if (type == 3) {
@@ -296,10 +285,11 @@ void clientFunction(SSL* ssl){
             }
 
             else if (type == 7) {
-                printf("\nhash here;");
+               // printf("\nInitial hash received;");
+                printf("\n");
                 sprintf(initialHash, "%s", buf);
 
-                printf("Hash saved : %s", initialHash);
+                printf("Hash saved :\n %s", initialHash);
                 printf("\n");
                 bzero(buf, sizeof(buf));
             }
@@ -344,8 +334,6 @@ void clientFunction(SSL* ssl){
 
 
         }
-
-
 
 
 
@@ -411,7 +399,7 @@ void clientFunction(SSL* ssl){
             }
             if ( type == 11){
 
-                printf("\nInitial hash%s", initialHash);
+                printf("\nInitial hash \n%s", initialHash);
                 /// copy buffer to board pos here ?
 
                 for ( int i = 0; i < 12 ; i++)
@@ -479,9 +467,9 @@ void clientFunction(SSL* ssl){
                 }
 
                 if (mt == 6) {
-                    printf("\nyou win ... \n");
-                    printf("\nscore is  ... %s ", buf);
-                    printf("Client Exit...\n");
+                    printf("\nyou win !!");
+                    printf("\nscore is : %s ", buf);
+                    printf("\n Game Over !! Client Exit...\n");
                     bzero(buf, MAX);
 
                     char response[] = EXITMSG;
@@ -504,9 +492,6 @@ void clientFunction(SSL* ssl){
 
     } /*** END MAIN LOOP ***/
 }
-
-
-
 
 
 
