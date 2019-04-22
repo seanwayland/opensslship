@@ -36,16 +36,19 @@
 
 
 int length = 0;
-int board[9][9];
-int numShots = 0;
+int board[9][9]; // array to hold the board
+int numShots = 0; // count of number of shots placed
 int shipPlaced;
-char buff[65];
-int boardPositionsArray[12];
-char boardPos[12];
-char hashString[65];
+char buff[65]; // buffer for communication
+int boardPositionsArray[12]; // array to hold board positions created
+char boardPos[12]; // string representation of boardPositionsArray
+char hashString[65]; // The board pos string converted into hash
 int rowNumber;
 int colNumber;
-unsigned char hash[SHA256_DIGEST_LENGTH];
+unsigned char hash[SHA256_DIGEST_LENGTH]; // hash of board position string
+
+/// function to convert board positions ( 12 integer representation of board ) into hash
+// the hash uses sha256
 
 void hasher() {
 
@@ -60,7 +63,7 @@ void hasher() {
     /// convert hash to string
 
 
-
+    // convert hex version of hash to string
     static const char alphabet[] = "0123456789ABCDEF";
 
     for (int i = 0; i != 32; ++i) {
@@ -80,6 +83,7 @@ void hasher() {
 
 }
 
+/// convert the integer array representation of board into a string
 void setBoardPositions() {
 
     for (int i = 0; i < 12; i++) { boardPos[i] = boardPositionsArray[i] + '0'; }
@@ -90,7 +94,8 @@ void setBoardPositions() {
 
 }
 
-
+/// check what ships have been hit on the board
+/// an empty board is all zeros and will return zero
 int scanBoard() {
     int result = 1;
     for (int i = 0; i < 9; i++) {
@@ -172,9 +177,9 @@ int getMessageType(char array[]) {
         printf("\nserver found It's a shot message");
         return 6;
 
-    } else if (strcmp(array, "") == 0) {
+    } else if (strcmp(array, "") == 0) {  // if message isn't correct type close connection
         return 9;
-    } else { return -1; }
+    } else { return -1; } // if message isn't correct type close connection
 }
 
 
@@ -281,7 +286,7 @@ int placeShip(int size) {
 
 /*** OPEN SSL FUNCTIONS ***/
 
-
+/// code from here http://simplestcodings.blogspot.com/2010/08/secure-server-client-using-openssl-in-c.html ///
 
 
 int OpenListener(int port) {
@@ -304,7 +309,7 @@ int OpenListener(int port) {
     return sd;
 }
 
-
+/// more ssl "library" implementation
 SSL_CTX *InitServerCTX(void) {
     const SSL_METHOD *method;  // added "const" to remove build error
     SSL_CTX *ctx;
@@ -320,6 +325,9 @@ SSL_CTX *InitServerCTX(void) {
     }
     return ctx;
 }
+
+
+/// more ssl "library" implementation
 
 void LoadCertificates(SSL_CTX *ctx, char *CertFile, char *KeyFile) {
     /* set the local certificate from CertFile */
@@ -339,6 +347,8 @@ void LoadCertificates(SSL_CTX *ctx, char *CertFile, char *KeyFile) {
     }
 }
 
+/// more ssl "library" implementation
+
 void ShowCerts(SSL *ssl) {
     X509 *cert;
     char *line;
@@ -357,6 +367,7 @@ void ShowCerts(SSL *ssl) {
         printf("No certificates.\n");
 }
 
+/// main game loop which processes incoming messages from client
 
 void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 {
@@ -371,28 +382,19 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 
         ///*** processing loop ///
 
-        ///while(1) {
-        ///    bytes = SSL_read(ssl, buf, sizeof(buf)); /* get request */
-        ///    if (bytes > 0) {
-        ///        buf[bytes] = 0;
-        ///        printf("Client msg: \"%s\"\n", buf);
-        ///        sprintf(reply, HTMLecho, buf);   /* construct reply */
-        ///        SSL_write(ssl, reply, strlen(reply)); /* send reply */
-        ///    } else
-        ///        ERR_print_errors_fp(stderr);
 
         while (1) {
             bzero(buff, MAX);
 
             // read the message from client and copy it in buffer
 
-            bytes = SSL_read(ssl, buff, sizeof(buff)); /* get request */
+            SSL_read(ssl, buff, sizeof(buff)); /* get request */
             // print buffer which contains the client contents
             int type = getMessageType(buff);
             printf("From client: %s\t To client : ", buff);
 
 
-            if (type == 8 || type < 0) {
+            if (type == 8 || type < 0) { /// if bad type is received close connection
                 printf("Server Exit...\n");
 
                 char die[] = EXITMSG;
@@ -467,16 +469,18 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                 if (shot == 1) {
                     numShots++;
                     int win = scanBoard();
-                    if (win == 1) {
+                    if (win == 1) { /// if the board has been cleared by the shot its a win
 
 
                         bzero(buff, MAX);
                         printf("You WIN ...\n");
+                        /// send the board pos array down to client
+                        /// client can then check the hash of it
                         SSL_write(ssl, boardPos, strlen(boardPos)); /* send reply */
                         bzero(buff, MAX);
 
                         //sleep(1);
-
+                        /// now send the "score" to the client
                         numShots++;
                         char response6[MAX];
                         sprintf(response6, "%d", numShots);
@@ -524,6 +528,8 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 }
 
 int main(int count, char *strings[]) {
+
+    /// SET UP CONNECTION AND CERTS
     SSL_CTX *ctx;
     int server;
     SSL *ssl;

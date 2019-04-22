@@ -36,12 +36,12 @@
 
 /// global variables for came play
 int length = 0;
-int shotBoard[9][9];
+int shotBoard[9][9]; // 2D array to store what shots have been taken
 int numShots = 0;
 int shipPlaced;
 char buf[MAX];
 char lastShot[MAX];
-char initialHash[65];
+char initialHash[65]; // array to store the hash sent over at the outset
 char boardPos[12];
 char hashString[65];
 
@@ -164,7 +164,7 @@ int getMessageType(char array[]) {
         return 3;
     } else if (strcmp(array, EXITMSG) == 0) {
         return 8;
-    } else { return -1; }
+    } else { return -1; } /// if message is not correct type reject it
 }
 
 
@@ -256,7 +256,7 @@ void clientFunction(SSL *ssl) {
                 printf("Hash saved :\n %s", initialHash);
                 printf("\n");
                 bzero(buf, sizeof(buf));
-            } else if (type == 8 || type < 0) {
+            } else if (type == 8 || type < 0) { /// if message isn't correct type close connection
                 printf("Client Exit...\n");
                 break;
             }
@@ -285,7 +285,7 @@ void clientFunction(SSL *ssl) {
             printf("From Server : %s", buf);
             gameState = 1; /// if we get a message back from server then the game has "started"
             int type = getMessageType(buf);
-            if (type == 8 || type < 0) {
+            if (type == 8 || type < 0) { // if message isn't correct type close connection
                 printf("Client Exit...\n");
                 break;
             }
@@ -340,7 +340,7 @@ void clientFunction(SSL *ssl) {
 
             }
 
-            if (type == 7) {
+            if (type == 7) {  /// we have recieved the hash at the start of the game
 
 
                 // TEST HASH //
@@ -350,7 +350,7 @@ void clientFunction(SSL *ssl) {
 
 
             }
-            if (type == 11) {
+            if (type == 11) { // we have received the board positions
 
                 printf("\nInitial hash \n%s", initialHash);
                 /// copy buffer to board pos here ?
@@ -393,12 +393,12 @@ void clientFunction(SSL *ssl) {
 
 
             }
-            if (type == 8 || type < 0) {
+            if (type == 8 || type < 0) { // if message isn't correct type close connection
                 printf("Client Exit...\n");
                 break;
             } else {}
 
-        } else if (gameState == 3) {
+        } else if (gameState == 3) {  //// at this point we have "won"
 
             while (1) {
 
