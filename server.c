@@ -29,6 +29,7 @@
 #define MISSMSG "MISS\n"
 #define EXITMSG "EXIT\n"
 #define OVERMSG "OVER\n"
+#define WAITMSG "WAIT\n"
 
 #define MAX 65
 
@@ -46,6 +47,7 @@ char hashString[65]; // The board pos string converted into hash
 int rowNumber;
 int colNumber;
 unsigned char hash[SHA256_DIGEST_LENGTH]; // hash of board position string
+int killMe = 0;
 
 /// function to convert board positions ( 12 integer representation of board ) into hash
 // the hash uses sha256
@@ -177,7 +179,10 @@ int getMessageType(char array[]) {
         printf("\nserver found It's a shot message");
         return 6;
 
-    } else if (strcmp(array, "") == 0) {  // if message isn't correct type close connection
+    }
+    else if (strcmp(array, WAITMSG) == 0) {
+        return 12; }
+    else if (strcmp(array, "") == 0) {  // if message isn't correct type close connection
         return 9;
     } else { return -1; } // if message isn't correct type close connection
 }
@@ -367,14 +372,14 @@ void ShowCerts(SSL *ssl) {
         printf("No certificates.\n");
 }
 
-/// main game loop which processes incoming messages from client
+
+
+
 
 void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 {
-    char reply[80];
-    int sd, bytes;
-    const char *HTMLecho = "<html><body><pre>%s</pre></body></html>\n\n";
 
+    int sd;
     if (SSL_accept(ssl) == FAIL)     /* do SSL-protocol accept */
         ERR_print_errors_fp(stderr);
     else {
@@ -382,52 +387,23 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
 
         ///*** processing loop ///
 
+        ///*** processing loop //}
 
         while (1) {
+
             bzero(buff, MAX);
 
             // read the message from client and copy it in buffer
-
             SSL_read(ssl, buff, sizeof(buff)); /* get request */
-            // print buffer which contains the client contents
             int type = getMessageType(buff);
-            printf("From client: %s\t To client : ", buff);
-
-
-            if (type == 8 || type < 0) { /// if bad type is received close connection
-                printf("Server Exit...\n");
-
-                char die[] = EXITMSG;
-                SSL_write(ssl, die, strlen(die)); /* send reply */
-
+            if (type == 8 || type < 0) {
+                killMe = 1;
                 break;
-            } else if (type == 7) {
-
-                sleep(1);
-                char response6[MAX];
-                sprintf(response6, "%d", numShots);
-                printf("You WIN ...\n");
-                SSL_write(ssl, response6, strlen(response6)); /* send reply */
-                sleep(2);
-                printf("Server Exit...\n");
-                char die[] = EXITMSG;
-                ///write(sockfd, die, sizeof(die));
-                SSL_write(ssl, die, strlen(die)); /* send reply */
-                break;
-
-
-            }
-
-                /// if we recieve a start message set the board up
-            else if (type == 1) {
-
+            } else if (type == 1) {
+                /// set up the board then reply with ships in position
                 srand(time(0));
                 printf("\ninitializing board");
                 printBoard();
-                char response[] = POSITIONMSG;
-                SSL_write(ssl, response, strlen(response)); /* send reply */
-
-                bzero(buff, MAX);
                 for (int i = 2; i < 6; i++) {
                     shipPlaced = 0;
                     // place a ship of size 2
@@ -435,59 +411,34 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                         shipPlaced = placeShip(i);
                     }
                 }
-
-                /// store board as a 12 digit number ( long )
-                /// ships position and orientation are stored 5 4 3 2
-                /// row , column, orientation
-
-
                 printf("\nboard finished\n");
                 setBoardPositions();
                 hasher();
-
-                sleep(1); /// maybe this helps the program not hanging when the client doesnt loop back fast enough
-
                 SSL_write(ssl, hashString, strlen(hashString));
-
-                sleep(2);
-
-
-                char response2[] = INPOSITIONMSG;
-                //write(sockfd, response2, sizeof(response2));
-                SSL_write(ssl, response2, strlen(response2)); /* send reply */
-                bzero(buff, MAX);
-
+                break;
             }
 
+        }
 
-                /// if we recieve a shot message deal with it
-            else if (type == 6) {
+        while (1) { /// respond to shots until win
 
+            SSL_read(ssl, buff, sizeof(buff)); /* get request */
+            int type = getMessageType(buff);
+            if (killMe == 1) { break; }
+            if (type == 6) {
                 printf("\nchecking shot\n");
                 int shot = shoot();
-
                 if (shot == 1) {
                     numShots++;
                     int win = scanBoard();
                     if (win == 1) { /// if the board has been cleared by the shot its a win
-
-
                         bzero(buff, MAX);
                         printf("You WIN ...\n");
                         /// send the board pos array down to client
                         /// client can then check the hash of it
                         SSL_write(ssl, boardPos, strlen(boardPos)); /* send reply */
                         bzero(buff, MAX);
-
-                        //sleep(1);
-                        /// now send the "score" to the client
-                        numShots++;
-                        char response6[MAX];
-                        sprintf(response6, "%d", numShots);
-                        printf("You WIN ...\n");
-                        SSL_write(ssl, response6, strlen(response6)); /* send reply */
-                        printf("Server Exit...\n");
-
+                        break;
                     }
                     char response3[] = HITMSG;
                     SSL_write(ssl, response3, strlen(response3)); /* send reply */
@@ -495,37 +446,44 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                 } else if (shot == 2) {
                     numShots++;
                     char response2[] = MISSMSG;
-                    //write(sockfd, response2, sizeof(response2));
                     SSL_write(ssl, response2, strlen(response2)); /* send reply */
                     printBoard();
-                } else {
-                    printf("Server Exit...\n");
-                    char die[] = EXITMSG;
-                    ///write(sockfd, die, sizeof(die));
-                    SSL_write(ssl, die, strlen(die)); /* send reply */
-
-                }
-
-            } else {
-                printf("Server Exit...\n");
-                sleep(1);
-                char die[] = EXITMSG;
-                ///write(sockfd, die, sizeof(die));
-                SSL_write(ssl, die, strlen(die)); /* send reply */}
-
-
+                } else {}
+            }
             bzero(buff, sizeof(buff));
+        }
 
+        /// send the score until exit recieved
+
+        numShots++;
+
+        while (1) {
+
+            if (killMe == 1) { break; }
+            char response6[MAX];
+            sprintf(response6, "%d", numShots);
+            printf("You WIN ...\n");
+            SSL_write(ssl, response6, strlen(response6)); /* send reply */
+            SSL_read(ssl, buff, sizeof(buff)); /* get reply & decrypt */
+            printf("From Server : %s", buff);
+            /// if win message
+            int type = getMessageType(buff);
+            if (type == 8 || type < 0) {
+                killMe = 1;
+                break;
+            }
         }
 
 
+
+        sd = SSL_get_fd(ssl);       /* get socket connection */
+        SSL_free(ssl);         /* release SSL state */
+        close(sd);          /* close connection */
+
+
     }
-
-
-    sd = SSL_get_fd(ssl);       /* get socket connection */
-    SSL_free(ssl);         /* release SSL state */
-    close(sd);          /* close connection */
 }
+
 
 int main(int count, char *strings[]) {
 
@@ -561,6 +519,7 @@ int main(int count, char *strings[]) {
     /*** processing */
 
     Servlet(ssl); //service connection */
+
 
     close(server);          /* close server socket */
     SSL_CTX_free(ctx);         /* release context */

@@ -28,6 +28,7 @@
 #define MISSMSG "MISS\n"
 #define EXITMSG "EXIT\n"
 #define OVERMSG "OVER\n";
+#define WAITMSG "WAIT\n"
 #define MAX 65
 
 
@@ -44,6 +45,7 @@ char lastShot[MAX];
 char initialHash[65]; // array to store the hash sent over at the outset
 char boardPos[12];
 char hashString[65];
+int killMe = 0;
 
 unsigned char hash[SHA256_DIGEST_LENGTH];
 
@@ -71,17 +73,11 @@ void hasher() {
     size_t length = strlen(boardPos);
     SHA256(boardPos, length, hash);
     int i;
-
     printf("\n");
-
     for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
         printf("%02x", hash[i]);
     /// convert hash to string
-
-
-
     static const char alphabet[] = "0123456789ABCDEF";
-
     for (int i = 0; i != 32; ++i) {
         hashString[2 * i] = alphabet[hash[i] / 16];
         hashString[2 * i + 1] = alphabet[hash[i] % 16];
@@ -162,9 +158,13 @@ int getMessageType(char array[]) {
     } else if (strcmp(array, INPOSITIONMSG) == 0) {
         printf("\n");
         return 3;
-    } else if (strcmp(array, EXITMSG) == 0) {
+    }
+    else if (strcmp(array, WAITMSG) == 0) {
+        return 12; }
+    else if (strcmp(array, EXITMSG) == 0) {
         return 8;
-    } else { return -1; } /// if message is not correct type reject it
+    }
+    else { return -1; } /// if message is not correct type reject it
 }
 
 
@@ -246,217 +246,138 @@ void ShowCerts(SSL *ssl) {
         printf("Info: No client certificates configured.\n");
 }
 
+
+
 void clientFunction(SSL *ssl) {
 
 
-    ///char buf[MAX];
+    bzero(buf, sizeof(buf));
+    printf("BATTLESHIP GAME\n");
+    printf("GAME STARTING\n");
 
-    for (;;) {
+    char start[] = STARTMSG;
 
-        /// at this point we are waiting for the server to set the ships up
+    SSL_write(ssl, start, sizeof(start)); /* send reply */
 
-        if (gameState == 1) {
+    /// wait for hash message
 
-            /// we should be able to receive a hash here
+    while(1)
+    {
 
+        bzero(buf, sizeof(buf));
+        SSL_read(ssl, buf, sizeof(buf)); /* get request */
 
-            SSL_read(ssl, buf, sizeof(buf)); /* get request */
+        int type = getMessageType(buf);
 
-            int type = getMessageType(buf);
-            /// we receive a game ready message then we can play
-            if (type == 3) {
-                printf("\nGame Ready ... \n");
-                gameState = 2;
-                bzero(buf, sizeof(buf));
-            } else if (type == 7) {
-
-                printf("\n");
-                sprintf(initialHash, "%s", buf);
-
-                printf("Hash saved :\n %s", initialHash);
-                printf("\n");
-                bzero(buf, sizeof(buf));
-            } else if (type == 8 || type < 0) { /// if message isn't correct type close connection
-                printf("Client Exit...\n");
-                break;
-            }
-
-                /// if we get a positioning ships message clear the buffer
-            else if (type == 2) {
-
-                bzero(buf, sizeof(buf));
-            } else {}
-
+        if (type == 8 || type < 0) {
+            killMe = 1;
+            break;
         }
-
-        /// game hasn't started. server is waiting for START GAME MESSAGE
-        if (gameState == 0) {
-            bzero(buf, sizeof(buf));
-            printf("BATTLESHIP GAME\n");
-            printf("GAME STARTING\n");
-
-            char start[] = STARTMSG;
-
-            SSL_write(ssl, start, sizeof(start)); /* send reply */
-
-            bzero(buf, sizeof(buf));
-            SSL_read(ssl, buf, sizeof(buf)); /* get request */
-
-            printf("From Server : %s", buf);
-            gameState = 1; /// if we get a message back from server then the game has "started"
-            int type = getMessageType(buf);
-            if (type == 8 || type < 0) { // if message isn't correct type close connection
-                printf("Client Exit...\n");
-                break;
-            }
-            bzero(buf, sizeof(buf));
-
-
-        }
-
-
-            /// at this point the game has started and we can make shots
-
-
-        else if (gameState == 2) {
-
-            bzero(buf, sizeof(buf));
+        else if ( type == 7){
             printf("\n");
-
-            /// GET SHOT FROM USER AND CHECK FOR CORRECT INPUT
-            while (1) {
-
-                printf("Enter your shot!! \n(Capital letter ( A to I )  then number ( 1 to 9 ) \nEXIT to quit:  ");
-                fgets(buf, MAX, stdin);
-                if (getMessageType(buf) == 9) { break; }
-                else if (getMessageType(buf) == 8) {
-                    printf("Client Exit...\n");
-                    char response[] = EXITMSG;
-                    SSL_write(ssl, response, sizeof(response)); /* send reply */
-                    //write(sockfd, response, sizeof(response));
-                    break;
-                } else { printf("\nIncorrect input!!\nPlease enter your shot again: "); }
-            }
-
-
-            /// SEND THE SHOT
-
-            SSL_write(ssl, buf, sizeof(buf)); /* send reply */
-
-            strncpy(lastShot, buf, MAX);
+            sprintf(initialHash, "%s", buf);
+            printf("Hash saved :\n %s", initialHash);
+            printf("\n");
             bzero(buf, sizeof(buf));
-            SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
-            printf("From Server : %s", buf);
-            /// if win message
-            int type = getMessageType(buf);
-            if (type == 6) {
-                printf("\nyou win ... \n");
-                printf("\nscore is  ... %s ", buf);
-                printf("Client Exit...\n");
-                bzero(buf, MAX);
+            break;
+        }
+        else { }
+    }
+    /// loop until win
+    while(1){
 
+        bzero(buf, sizeof(buf));
+        printf("\n");
+        /// GET SHOT FROM USER AND CHECK FOR CORRECT INPUT
+        while (1) {
+
+            printf("Enter your shot!! \n(Capital letter ( A to I )  then number ( 1 to 9 ) \nEXIT to quit:  ");
+            fgets(buf, MAX, stdin);
+            if (getMessageType(buf) == 9) { break; }
+            else if (getMessageType(buf) == 8) {
+                printf("Client Exit...\n");
                 char response[] = EXITMSG;
                 SSL_write(ssl, response, sizeof(response)); /* send reply */
-
-            }
-
-            if (type == 7) {  /// we have recieved the hash at the start of the game
-
-
-                // TEST HASH //
-                printf("\nHash Recieved");
-                sprintf(initialHash, "%s", buf);
-                bzero(buf, sizeof(buf));
-
-
-            }
-            if (type == 11) { // we have received the board positions
-
-                printf("\nInitial hash \n%s", initialHash);
-                /// copy buffer to board pos here ?
-
-                for (int i = 0; i < 12; i++) {
-                    boardPos[i] = buf[i];
-                }
-
-                hasher();
-                bzero(buf, sizeof(buf));
-
-                char response[] = OVERMSG;
-                SSL_write(ssl, response, sizeof(response)); /* send reply */
-
-
-                gameState = 3;
-
-                /// RETURN AND OVER MSG ?
-            }
-
-            if (type == 4) {
-                /// hit
-                /// store on shotBoard
-                int row = lastShot[0] - 64 - 1; // convert uppercase letter to row
-                int col = lastShot[1] - '0' - 1;
-
-                shotBoard[col][row] = 2;
-                printShotBoard();
-
-            }
-
-            if (type == 5) {
-                /// miss
-                /// store on shotBoard
-                int row = lastShot[0] - 64 - 1; // convert uppercase letter to row
-                int col = lastShot[1] - '0' - 1;
-                shotBoard[col][row] = 1;
-                printShotBoard();
-                printf("\n");
-
-
-            }
-            if (type == 8 || type < 0) { // if message isn't correct type close connection
-                printf("Client Exit...\n");
                 break;
-            } else {}
-
-        } else if (gameState == 3) {  //// at this point we have "won"
-
-            while (1) {
-
-                SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
-
-                printf("From Server : %s", buf);
-
-                int mt = getMessageType(buf);
-
-                if (mt == 8 || mt < 0) {
-                    printf("Client Exit...\n");
-                    break;
-                }
-
-                if (mt == 6) {
-                    printf("\nyou win !!");
-                    printf("\nscore is : %s ", buf);
-                    printf("\nGame Over !! Client Exit...\n");
-                    bzero(buf, MAX);
-
-                    char response[] = EXITMSG;
-                    SSL_write(ssl, response, sizeof(response)); /* send reply */
-
-
-                    break;
-                } else {
-                    break;
-                }
-
-            }
-
-            break;
-
+            } else { printf("\nIncorrect input!!\nPlease enter your shot again: "); }
         }
 
+        /// SEND THE SHOT
+        SSL_write(ssl, buf, sizeof(buf)); /* send reply */
+        strncpy(lastShot, buf, MAX);
+        bzero(buf, sizeof(buf));
+        SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
+        printf("From Server : %s", buf);
+        /// if win message
+        int type = getMessageType(buf);
+        if (type == 11) {
+            printf("\nyou win ... \n");
+            printf("\nboard pos array received... %s ", buf);
+            printf("Client Exit...\n");
 
-    } /*** END MAIN LOOP ***/
+            for (int i = 0; i < 12; i++) {
+                boardPos[i] = buf[i];
+            }
+            printf("\nInitial hash \n%s", initialHash);
+            hasher();
+            bzero(buf, sizeof(buf));
+            break;
+        }
+        if (type == 4) {
+            /// hit
+            /// store on shotBoard
+            int row = lastShot[0] - 64 - 1; // convert uppercase letter to row
+            int col = lastShot[1] - '0' - 1;
+            shotBoard[col][row] = 2;
+            printShotBoard();
+        }
+
+        if (type == 5) {
+            /// miss
+            /// store on shotBoard
+            int row = lastShot[0] - 64 - 1; // convert uppercase letter to row
+            int col = lastShot[1] - '0' - 1;
+            shotBoard[col][row] = 1;
+            printShotBoard();
+            printf("\n");
+
+
+        }
+        if (type == 8 || type < 0) { // if message isn't correct type close connection
+            printf("Client Exit...\n");
+            break;
+        } else {}
+
+
+    }
+
+
+    /// wait for the score then respond with exit
+    while(1){
+        bzero(buf, sizeof(buf));
+        SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
+        printf("From Server : %s", buf);
+        /// if win message
+        int type = getMessageType(buf);
+        if (type == 8 || type < 0){
+        break ;}
+
+        else if (type == 6) {
+            printf("\nyou win ... \n");
+            printf("\nscore is  ... %s ", buf);
+            printf("Client Exit...\n");
+
+            // check the hash
+            bzero(buf, MAX);
+            char response[] = EXITMSG;
+            SSL_write(ssl, response, sizeof(response)); /* send reply */
+            break;
+        }
+
+    }
+
 }
+
 
 
 int main(int count, char *strings[]) {
@@ -501,4 +422,3 @@ int main(int count, char *strings[]) {
     SSL_CTX_free(ctx);        /* release context */
     return 0;
 }
-
