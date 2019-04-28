@@ -31,7 +31,7 @@
 #define OVERMSG "OVER\n"
 #define WAITMSG "WAIT\n"
 
-#define MAX 65
+#define MAXBUF 65
 
 #define FAIL    -1
 
@@ -129,15 +129,6 @@ int shoot() {
 }
 
 
-/***
- * 0 is waiting for client to press start
- * 1 is waiting for positioning ships
- * 2 is waiting for ships in position
- * 3 is waiting for shots
- *    shot received,  hit , miss
- * 4 is game is over
- *
- */
 
 void printBoard() {
     printf("\nBOARD");
@@ -376,7 +367,7 @@ void ShowCerts(SSL *ssl) {
 
 
 
-void Servlet(SSL *ssl) /* Serve the connection -- threadable */
+void Servlet(SSL *ssl) /* Serve the connection  */
 {
 
     int sd;
@@ -385,14 +376,9 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
     else {
         ShowCerts(ssl);        /* get any certificates */
 
-        ///*** processing loop ///
-
-        ///*** processing loop //}
 
         while (1) {
-
-            bzero(buff, MAX);
-
+            bzero(buff, MAXBUF);
             // read the message from client and copy it in buffer
             SSL_read(ssl, buff, sizeof(buff)); /* get request */
             int type = getMessageType(buff);
@@ -400,7 +386,7 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                 killMe = 1;
                 break;
             } else if (type == 1) {
-                /// set up the board then reply with ships in position
+                /// set up the board
                 srand(time(0));
                 printf("\ninitializing board");
                 printBoard();
@@ -414,17 +400,22 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                 printf("\nboard finished\n");
                 setBoardPositions();
                 hasher();
-                SSL_write(ssl, hashString, strlen(hashString));
+                SSL_write(ssl, hashString, strlen(hashString)); // sending the hash down tells client board is set up
                 break;
             }
 
         }
-
+        /// MAIN GAME LOOP
         while (1) { /// respond to shots until win
 
             SSL_read(ssl, buff, sizeof(buff)); /* get request */
             int type = getMessageType(buff);
             if (killMe == 1) { break; }
+
+            if (type == 8 || type < 0) {  /// CHECK FOR VALID MESSAGE
+                killMe = 1;
+                break;
+            }
             if (type == 6) {
                 printf("\nchecking shot\n");
                 int shot = shoot();
@@ -432,12 +423,12 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
                     numShots++;
                     int win = scanBoard();
                     if (win == 1) { /// if the board has been cleared by the shot its a win
-                        bzero(buff, MAX);
+                        bzero(buff, MAXBUF);
                         printf("You WIN ...\n");
                         /// send the board pos array down to client
                         /// client can then check the hash of it
                         SSL_write(ssl, boardPos, strlen(boardPos)); /* send reply */
-                        bzero(buff, MAX);
+                        bzero(buff, MAXBUF);
                         break;
                     }
                     char response3[] = HITMSG;
@@ -453,14 +444,14 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
             bzero(buff, sizeof(buff));
         }
 
-        /// send the score until exit recieved
+        /// send the score until exit received
 
         numShots++;
 
         while (1) {
 
             if (killMe == 1) { break; }
-            char response6[MAX];
+            char response6[MAXBUF];
             sprintf(response6, "%d", numShots);
             printf("You WIN ...\n");
             SSL_write(ssl, response6, strlen(response6)); /* send reply */
@@ -474,8 +465,8 @@ void Servlet(SSL *ssl) /* Serve the connection -- threadable */
             }
         }
 
-
-
+        char response9[] = EXITMSG;
+        SSL_write(ssl, response9, strlen(response9)); /* send reply */
         sd = SSL_get_fd(ssl);       /* get socket connection */
         SSL_free(ssl);         /* release SSL state */
         close(sd);          /* close connection */
@@ -502,23 +493,32 @@ int main(int count, char *strings[]) {
     SSL_library_init();
 
     portnum = strings[1];
+
     ctx = InitServerCTX();        /* initialize SSL */
+
+    //SSL_CTX_set_verify_depth(ctx, 2);
+    //SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
+
+
     LoadCertificates(ctx, "mycert.pem", "mycert.pem"); /* load certs */
     server = OpenListener(atoi(portnum));    /* create server socket */
 
-    struct sockaddr_in addr;
-    socklen_t len = sizeof(addr);
+
+        struct sockaddr_in addr;
+        socklen_t len = sizeof(addr);
 
 
-    int client = accept(server, (struct sockaddr *) &addr, &len);  /* accept connection as usual */
-    printf("Connection: %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-    ssl = SSL_new(ctx);              /* get new SSL state with context */
-    SSL_set_fd(ssl, client);/* set connection socket to SSL state */
+        int client = accept(server, (struct sockaddr *) &addr, &len);  /* accept connection as usual */
+        printf("Connection: %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+        ssl = SSL_new(ctx);              /* get new SSL state with context */
+        // SSL_verify_client_post_handshake(ssl);
+        SSL_set_fd(ssl, client);/* set connection socket to SSL state */
 
 
-    /*** processing */
+        /*** processing */
 
-    Servlet(ssl); //service connection */
+        Servlet(ssl); //service connection */
 
 
     close(server);          /* close server socket */

@@ -29,7 +29,7 @@
 #define EXITMSG "EXIT\n"
 #define OVERMSG "OVER\n";
 #define WAITMSG "WAIT\n"
-#define MAX 65
+#define MAXBUF 65
 
 
 #define FAIL    -1
@@ -40,12 +40,13 @@ int length = 0;
 int shotBoard[9][9]; // 2D array to store what shots have been taken
 int numShots = 0;
 int shipPlaced;
-char buf[MAX];
-char lastShot[MAX];
+char buf[MAXBUF];
+char lastShot[MAXBUF];
 char initialHash[65]; // array to store the hash sent over at the outset
 char boardPos[12];
 char hashString[65];
 int killMe = 0;
+int sd;
 
 unsigned char hash[SHA256_DIGEST_LENGTH];
 
@@ -54,16 +55,11 @@ int gameState; // variable to track game position
 
 
 /*** SSL VARIABLES */
-
-
-
 /// 0 is not started
 /// 1 is start message sent
 /// 2 is positioning ships
 /// 3 is ships in position
 /// 4 is playing game
-
-
 /// set board to empty
 
 
@@ -247,16 +243,13 @@ void ShowCerts(SSL *ssl) {
 }
 
 
-
 void clientFunction(SSL *ssl) {
 
 
     bzero(buf, sizeof(buf));
     printf("BATTLESHIP GAME\n");
     printf("GAME STARTING\n");
-
     char start[] = STARTMSG;
-
     SSL_write(ssl, start, sizeof(start)); /* send reply */
 
     /// wait for hash message
@@ -266,9 +259,7 @@ void clientFunction(SSL *ssl) {
 
         bzero(buf, sizeof(buf));
         SSL_read(ssl, buf, sizeof(buf)); /* get request */
-
         int type = getMessageType(buf);
-
         if (type == 8 || type < 0) {
             killMe = 1;
             break;
@@ -285,26 +276,27 @@ void clientFunction(SSL *ssl) {
     }
     /// loop until win
     while(1){
-
+        if (killMe == 1){break;}
         bzero(buf, sizeof(buf));
         printf("\n");
         /// GET SHOT FROM USER AND CHECK FOR CORRECT INPUT
         while (1) {
 
             printf("Enter your shot!! \n(Capital letter ( A to I )  then number ( 1 to 9 ) \nEXIT to quit:  ");
-            fgets(buf, MAX, stdin);
+            fgets(buf, MAXBUF, stdin);
             if (getMessageType(buf) == 9) { break; }
             else if (getMessageType(buf) == 8) {
                 printf("Client Exit...\n");
                 char response[] = EXITMSG;
                 SSL_write(ssl, response, sizeof(response)); /* send reply */
+                killMe = 1;
                 break;
             } else { printf("\nIncorrect input!!\nPlease enter your shot again: "); }
         }
 
         /// SEND THE SHOT
         SSL_write(ssl, buf, sizeof(buf)); /* send reply */
-        strncpy(lastShot, buf, MAX);
+        strncpy(lastShot, buf, MAXBUF);
         bzero(buf, sizeof(buf));
         SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
         printf("From Server : %s", buf);
@@ -354,6 +346,7 @@ void clientFunction(SSL *ssl) {
 
     /// wait for the score then respond with exit
     while(1){
+        if (killMe == 1){ break;}
         bzero(buf, sizeof(buf));
         SSL_read(ssl, buf, sizeof(buf)); /* get reply & decrypt */
         printf("From Server : %s", buf);
@@ -368,7 +361,7 @@ void clientFunction(SSL *ssl) {
             printf("Client Exit...\n");
 
             // check the hash
-            bzero(buf, MAX);
+            bzero(buf, MAXBUF);
             char response[] = EXITMSG;
             SSL_write(ssl, response, sizeof(response)); /* send reply */
             break;
@@ -379,19 +372,13 @@ void clientFunction(SSL *ssl) {
 }
 
 
-
 int main(int count, char *strings[]) {
     gameState = 0; // starting !!
     SSL_CTX *ctx;
     int server;
     SSL *ssl;
-
-
     char *hostname, *portnum;
-
     initializeBoard();
-
-
     if (count != 3) {
         printf("usage: %s <hostname> <portnum>\n", strings[0]);
         exit(0);
@@ -401,9 +388,12 @@ int main(int count, char *strings[]) {
     portnum = strings[2];
 
     ctx = InitCTX();
+    //SSL_CTX_set_verify_depth(ctx, 2);
+    //SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
     LoadCertificates(ctx, "mycert.pem", "mycert.pem"); /* load certs */
     server = OpenConnection(hostname, atoi(portnum));
     ssl = SSL_new(ctx);      /* create new SSL connection state */
+    //SSL_verify_client_post_handshake(ssl);
     SSL_set_fd(ssl, server);    /* attach the socket descriptor */
     if (SSL_connect(ssl) == FAIL)   /* perform the connection */
         ERR_print_errors_fp(stderr);
